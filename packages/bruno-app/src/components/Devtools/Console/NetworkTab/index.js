@@ -138,10 +138,21 @@ const NetworkTab = () => {
     });
 
     const deduped = new Map();
-    [...adHocRequestHistory, ...timelineRequests].forEach((request) => {
-      const method = request?.data?.request?.method || '';
+
+    const getRequestHistoryKey = (request) => {
+      if (request.historyId) {
+        return request.historyId;
+      }
+
+      const method = request?.data?.request?.method || 'GET';
       const url = request?.data?.request?.url || '';
-      const dedupeKey = request.historyId || `${request.collectionUid}:${request.itemUid}:${request.timestamp}:${method}:${url}`;
+      const requestIdentifier = request.requestUid || `${method}:${url}`;
+
+      return `${request.collectionUid}:${request.itemUid}:${requestIdentifier}:${request.timestamp}`;
+    };
+
+    [...adHocRequestHistory, ...timelineRequests].forEach((request) => {
+      const dedupeKey = getRequestHistoryKey(request);
 
       if (!deduped.has(dedupeKey)) {
         deduped.set(dedupeKey, request);

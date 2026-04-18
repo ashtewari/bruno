@@ -76,7 +76,10 @@ export const adHocHistoryMiddleware = (store) => (next) => (action) => {
   const request = sanitizeRequest(action.payload.requestSent || item.requestSent || item.request);
   const response = sanitizeResponse(action.payload.response || item.response);
   const timestamp = request?.timestamp || Date.now();
-  const historyId = `${collectionUid}:${itemUid}:${item.requestUid || 'request'}:${timestamp}`;
+  const requestMethod = request?.method || 'GET';
+  const requestUrl = request?.url || '';
+  const requestIdentifier = item.requestUid || `${requestMethod}:${requestUrl}`;
+  const historyId = `${collectionUid}:${itemUid}:${requestIdentifier}:${timestamp}`;
 
   store.dispatch(addAdHocHistoryEntry({
     historyId,
