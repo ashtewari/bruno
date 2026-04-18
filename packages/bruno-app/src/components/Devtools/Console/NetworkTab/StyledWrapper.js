@@ -71,6 +71,29 @@ const StyledWrapper = styled.div`
     min-height: 0; /* Important for proper flex behavior */
   }
 
+  .requests-search {
+    padding: 6px 16px;
+    border-bottom: 1px solid ${(props) => props.theme.console.border};
+    background: ${(props) => props.theme.console.headerBg};
+    flex-shrink: 0;
+
+    input {
+      width: 100%;
+      height: 26px;
+      border: 1px solid ${(props) => props.theme.console.border};
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: ${(props) => props.theme.font.size.sm};
+      color: ${(props) => props.theme.console.messageColor};
+      background: ${(props) => props.theme.console.contentBg};
+      outline: none;
+
+      &:focus {
+        border-color: ${(props) => props.theme.console.checkboxColor};
+      }
+    }
+  }
+
   .requests-header {
     display: grid;
     grid-template-columns: 80px 80px 150px 1fr 100px 80px 80px;

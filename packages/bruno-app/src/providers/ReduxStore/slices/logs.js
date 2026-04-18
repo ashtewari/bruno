@@ -1,5 +1,26 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const AD_HOC_HISTORY_STORAGE_KEY = 'bruno.adHocRequestHistory.v1';
+const MAX_AD_HOC_HISTORY_ENTRIES = 1000;
+
+const loadPersistedAdHocHistory = () => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(AD_HOC_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const initialState = {
   logs: [],
   debugErrors: [],
@@ -23,6 +44,7 @@ const initialState = {
   },
   selectedRequest: null,
   selectedError: null,
+  adHocRequestHistory: loadPersistedAdHocHistory(),
   maxLogs: 1000,
   maxDebugErrors: 500
 };
@@ -118,6 +140,26 @@ export const logsSlice = createSlice({
     },
     clearSelectedError: (state) => {
       state.selectedError = null;
+    },
+    addAdHocHistoryEntry: (state, action) => {
+      const entry = action.payload;
+      if (!entry) {
+        return;
+      }
+
+      const alreadyExists = state.adHocRequestHistory.some((e) => e.historyId === entry.historyId);
+      if (alreadyExists) {
+        return;
+      }
+
+      state.adHocRequestHistory.push(entry);
+      if (state.adHocRequestHistory.length > MAX_AD_HOC_HISTORY_ENTRIES) {
+        state.adHocRequestHistory = state.adHocRequestHistory.slice(-MAX_AD_HOC_HISTORY_ENTRIES);
+      }
+    },
+    setAdHocHistoryEntries: (state, action) => {
+      const entries = Array.isArray(action.payload) ? action.payload : [];
+      state.adHocRequestHistory = entries.slice(-MAX_AD_HOC_HISTORY_ENTRIES);
     }
   }
 });
@@ -137,7 +179,9 @@ export const {
   setSelectedRequest,
   clearSelectedRequest,
   setSelectedError,
-  clearSelectedError
+  clearSelectedError,
+  addAdHocHistoryEntry,
+  setAdHocHistoryEntries
 } = logsSlice.actions;
 
 export default logsSlice.reducer;

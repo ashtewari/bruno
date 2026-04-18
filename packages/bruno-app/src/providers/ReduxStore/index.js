@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import tasksMiddleware from './middlewares/tasks/middleware';
 import debugMiddleware from './middlewares/debug/middleware';
+import { adHocHistoryMiddleware } from './middlewares/ad-hoc-history/middleware';
 import appReducer from './slices/app';
 import collectionsReducer from './slices/collections';
 import tabsReducer from './slices/tabs';
@@ -18,7 +19,7 @@ const isDevEnv = () => {
   return import.meta.env.MODE === 'development';
 };
 
-let middleware = [tasksMiddleware.middleware, draftDetectMiddleware, autosaveMiddleware];
+let middleware = [tasksMiddleware.middleware, draftDetectMiddleware, autosaveMiddleware, adHocHistoryMiddleware];
 if (isDevEnv()) {
   middleware = [...middleware, debugMiddleware.middleware];
 }

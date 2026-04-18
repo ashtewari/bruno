@@ -4,13 +4,18 @@ import {
   IconX,
   IconFileText,
   IconArrowRight,
-  IconNetwork
+  IconNetwork,
+  IconHistory
 } from '@tabler/icons';
 import { clearSelectedRequest } from 'providers/ReduxStore/slices/logs';
+import { newHttpRequest } from 'providers/ReduxStore/slices/collections/actions';
 import QueryResponse from 'components/ResponsePane/QueryResponse/index';
 import Network from 'components/ResponsePane/Timeline/TimelineItem/Network';
 import StyledWrapper from './StyledWrapper';
 import { uuid } from 'utils/common/index';
+import { sanitizeName } from 'utils/common/regex';
+import toast from 'react-hot-toast';
+import { formatIpcError } from 'utils/common/error';
 
 const RequestTab = ({ request, response }) => {
   const formatHeaders = (headers) => {
@@ -157,6 +162,7 @@ const RequestDetailsPanel = () => {
   const dispatch = useDispatch();
   const { selectedRequest } = useSelector((state) => state.logs);
   const collections = useSelector((state) => state.collections.collections);
+  const { activeWorkspaceUid, workspaces } = useSelector((state) => state.workspaces);
   const [activeTab, setActiveTab] = useState('request');
 
   if (!selectedRequest) return null;
@@ -165,9 +171,130 @@ const RequestDetailsPanel = () => {
   const { request, response } = data;
 
   const collection = collections.find((c) => c.uid === selectedRequest.collectionUid);
+  const activeWorkspace = workspaces?.find((w) => w.uid === activeWorkspaceUid);
 
   const handleClose = () => {
     dispatch(clearSelectedRequest());
+  };
+
+  const normalizeHeaders = (headers) => {
+    if (!headers) {
+      return [];
+    }
+
+    if (Array.isArray(headers)) {
+      return headers.map((header) => ({
+        name: header?.name || '',
+        value: header?.value || '',
+        enabled: true
+      }));
+    }
+
+    return Object.entries(headers).map(([name, value]) => ({
+      name,
+      value: value == null ? '' : String(value),
+      enabled: true
+    }));
+  };
+
+  const inferBody = (request) => {
+    const rawData = request?.data;
+    if (rawData == null || rawData === '') {
+      return {
+        mode: 'none',
+        json: null,
+        text: null,
+        xml: null,
+        sparql: null,
+        multipartForm: [],
+        formUrlEncoded: [],
+        file: []
+      };
+    }
+
+    if (typeof rawData === 'object') {
+      return {
+        mode: 'json',
+        json: JSON.stringify(rawData, null, 2),
+        text: null,
+        xml: null,
+        sparql: null,
+        multipartForm: [],
+        formUrlEncoded: [],
+        file: []
+      };
+    }
+
+    const dataText = String(rawData);
+    const contentTypeHeader = normalizeHeaders(request?.headers).find(
+      (header) => header.name.toLowerCase() === 'content-type'
+    )?.value;
+    const looksLikeJson = contentTypeHeader?.toLowerCase()?.includes('json')
+      || (dataText.startsWith('{') && dataText.endsWith('}'))
+      || (dataText.startsWith('[') && dataText.endsWith(']'));
+
+    if (looksLikeJson) {
+      try {
+        const parsed = JSON.parse(dataText);
+        return {
+          mode: 'json',
+          json: JSON.stringify(parsed, null, 2),
+          text: null,
+          xml: null,
+          sparql: null,
+          multipartForm: [],
+          formUrlEncoded: [],
+          file: []
+        };
+      } catch {
+        // fall back to plain text mode
+      }
+    }
+
+    return {
+      mode: 'text',
+      json: null,
+      text: dataText,
+      xml: null,
+      sparql: null,
+      multipartForm: [],
+      formUrlEncoded: [],
+      file: []
+    };
+  };
+
+  const handleReopenRequest = () => {
+    const targetCollectionUid = collection?.uid || activeWorkspace?.scratchCollectionUid;
+    const requestToReopen = request || {};
+
+    if (!targetCollectionUid) {
+      toast.error('No active workspace scratch collection found to reopen request');
+      return;
+    }
+
+    const timestamp = selectedRequest?.timestamp || Date.now();
+    const requestName = `History ${new Date(timestamp).toISOString()}`;
+    const filename = sanitizeName(`${requestName}-${timestamp}`);
+
+    dispatch(
+      newHttpRequest({
+        requestName,
+        filename,
+        requestType: 'http-request',
+        requestUrl: requestToReopen.url || '',
+        requestMethod: (requestToReopen.method || 'GET').toUpperCase(),
+        collectionUid: targetCollectionUid,
+        itemUid: null,
+        isTransient: true,
+        headers: normalizeHeaders(requestToReopen.headers),
+        body: inferBody(requestToReopen),
+        auth: {
+          mode: 'inherit'
+        }
+      })
+    ).catch((error) => {
+      toast.error(formatIpcError(error) || 'Failed to reopen request from history');
+    });
   };
 
   const formatTime = (timestamp) => {
@@ -197,13 +324,23 @@ const RequestDetailsPanel = () => {
           <span className="request-time">({formatTime(selectedRequest.timestamp)})</span>
         </div>
 
-        <button
-          className="close-button"
-          onClick={handleClose}
-          title="Close details panel"
-        >
-          <IconX size={16} strokeWidth={1.5} />
-        </button>
+        <div className="panel-actions">
+          <button
+            className="reopen-button"
+            onClick={handleReopenRequest}
+            title="Reopen as new transient request"
+          >
+            <IconHistory size={14} strokeWidth={1.5} />
+            Reopen
+          </button>
+          <button
+            className="close-button"
+            onClick={handleClose}
+            title="Close details panel"
+          >
+            <IconX size={16} strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
 
       <div className="panel-tabs">

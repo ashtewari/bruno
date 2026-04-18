@@ -54,6 +54,31 @@ const StyledWrapper = styled.div`
     }
   }
 
+  .panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .reopen-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid ${(props) => props.theme.console.border};
+    border-radius: 4px;
+    background: transparent;
+    color: ${(props) => props.theme.console.buttonColor};
+    font-size: ${(props) => props.theme.font.size.xs};
+    cursor: pointer;
+
+    &:hover {
+      background: ${(props) => props.theme.console.buttonHoverBg};
+      color: ${(props) => props.theme.console.buttonHoverColor};
+    }
+  }
+
   .panel-tabs {
     display: flex;
     background: ${(props) => props.theme.console.headerBg};

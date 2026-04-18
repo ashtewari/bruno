@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   IconNetwork
@@ -116,18 +116,19 @@ const RequestRow = ({ request, isSelected, onClick }) => {
 
 const NetworkTab = () => {
   const dispatch = useDispatch();
-  const { networkFilters, selectedRequest } = useSelector((state) => state.logs);
+  const { networkFilters, selectedRequest, adHocRequestHistory } = useSelector((state) => state.logs);
   const collections = useSelector((state) => state.collections.collections);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const allRequests = useMemo(() => {
-    const requests = [];
+    const timelineRequests = [];
 
     collections.forEach((collection) => {
       if (collection.timeline) {
         collection.timeline
           .filter((entry) => entry.type === 'request')
           .forEach((entry) => {
-            requests.push({
+            timelineRequests.push({
               ...entry,
               collectionName: collection.name,
               collectionUid: collection.uid
@@ -136,15 +137,37 @@ const NetworkTab = () => {
       }
     });
 
-    return requests.sort((a, b) => a.timestamp - b.timestamp);
-  }, [collections]);
+    const deduped = new Map();
+    [...adHocRequestHistory, ...timelineRequests].forEach((request) => {
+      const method = request?.data?.request?.method || '';
+      const url = request?.data?.request?.url || '';
+      const dedupeKey = request.historyId || `${request.collectionUid}:${request.itemUid}:${request.timestamp}:${method}:${url}`;
+
+      if (!deduped.has(dedupeKey)) {
+        deduped.set(dedupeKey, request);
+      }
+    });
+
+    return Array.from(deduped.values()).sort((a, b) => a.timestamp - b.timestamp);
+  }, [collections, adHocRequestHistory]);
 
   const filteredRequests = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
     return allRequests.filter((request) => {
       const method = request.data?.request?.method?.toUpperCase() || 'GET';
-      return networkFilters[method];
+      if (!networkFilters[method]) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const url = request.data?.request?.url?.toLowerCase() || '';
+      return url.includes(normalizedSearch);
     });
-  }, [allRequests, networkFilters]);
+  }, [allRequests, networkFilters, searchTerm]);
 
   const handleRequestClick = (request) => {
     dispatch(setSelectedRequest(request));
@@ -161,6 +184,14 @@ const NetworkTab = () => {
           </div>
         ) : (
           <div className="requests-container">
+            <div className="requests-search">
+              <input
+                type="text"
+                placeholder="Search by URL or endpoint"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
             <div className="requests-header">
               <div>Method</div>
               <div>Status</div>
